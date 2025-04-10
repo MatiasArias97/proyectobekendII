@@ -4,8 +4,8 @@ import passport from 'passport';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import sessionRouter from '../routes/sessionRouter.js';
-import '../config/passport.js';
+import sessionRouter from './routes/sessionRouter.js';
+import './config/passport.js';
 
 dotenv.config();
 
