@@ -1,21 +1,58 @@
-import passport from 'passport';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
+import { Strategy as LocalStrategy } from 'passport-local';
+import passport from 'passport';
+import UserModel from '../dao/models/user.model.js';
+import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import { UserModel } from '../models/User.js';
 
 dotenv.config();
 
-const opts = {
-  jwtFromRequest: ExtractJwt.fromExtractors([(req) => req?.cookies?.token]),
-  secretOrKey: process.env.JWT_SECRET
+// 🟩 Estrategia Local (login con email y password)
+passport.use(
+  new LocalStrategy(
+    {
+      usernameField: 'email',
+      passwordField: 'password',
+    },
+    async (email, password, done) => {
+      try {
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+          return done(null, false, { message: 'Usuario no encontrado' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+          return done(null, false, { message: 'Contraseña incorrecta' });
+        }
+
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
+
+// 🟩 Estrategia JWT (validación con token)
+const jwtOptions = {
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  secretOrKey: process.env.JWT_SECRET,
 };
 
-passport.use(new JwtStrategy(opts, async (jwt_payload, done) => {
-  try {
-    const user = await UserModel.findById(jwt_payload.id);
-    if (!user) return done(null, false);
-    return done(null, user);
-  } catch (error) {
-    return done(error, false);
-  }
-}));
+passport.use(
+  new JwtStrategy(jwtOptions, async (payload, done) => {
+    try {
+      // Usamos el email, que sí viene en el token
+      const user = await UserModel.findOne({ email: payload.email });
+      if (!user) {
+        return done(null, false);
+      }
+      return done(null, user);
+    } catch (error) {
+      return done(error, false);
+    }
+  })
+);
+
+export default passport;
